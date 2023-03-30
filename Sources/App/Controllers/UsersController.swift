@@ -16,6 +16,7 @@ struct UsersController: RouteCollection {
         usersRoute.get(use: getAllHandler)
         usersRoute.get("first", use: getFirstHandler)
         usersRoute.get(":userID", use: getHandler)
+        usersRoute.delete(":userID", use: deleteHandler)
         usersRoute.get(":userID", "acronyms", use: getAcronymsHandler)
     }
     
@@ -23,17 +24,14 @@ struct UsersController: RouteCollection {
         let user = try req.content.decode(User.self)
         
         let users = try await User.query(on: req.db).all()
-        if    users.contains(where: { $0.username == user.username}) {
-            throw Abort(.conflict, reason: "User with username \(user.username) already exists.")
-        }
-        else {
-            try await user.create(on: req.db)
-            return user
-        }
+        
+        try await user.create(on: req.db)
+        return user
+        
     }
     
     func getAllHandler(_ req: Request) async throws -> [User] {
-      return try await User.query(on: req.db).all()
+        return try await User.query(on: req.db).all()
     }
     
     func getHandler(_ req: Request) async throws -> User {
@@ -45,6 +43,19 @@ struct UsersController: RouteCollection {
         }
         
         return user
+    }
+    
+    func deleteHandler(_ req: Request) async throws -> HTTPStatus {
+        guard let userID = req.parameters.get("userID", as: UUID.self) else {
+            throw Abort(.notFound)
+        }
+        guard  let user = try await User.find(userID, on: req.db) else {
+            throw Abort(.notFound)
+        }
+        
+        try await user.delete(on: req.db)
+        
+        return .noContent
     }
     
     func getAcronymsHandler(_ req: Request) async throws -> [Acronym] {
@@ -67,7 +78,7 @@ struct UsersController: RouteCollection {
         }
         return user
     }
-
+    
 }
 
 
@@ -81,21 +92,21 @@ enum UserError {
 extension UserError: AbortError {
     var reason: String {
         switch self {
-        case .userNotLoggedIn:
-            return "User is not logged in."
-        case .invalidEmail(let email):
-            return "Email address is not valid: \(email)."
+            case .userNotLoggedIn:
+                return "User is not logged in."
+            case .invalidEmail(let email):
+                return "Email address is not valid: \(email)."
             case .usernameAlreadyExist(let name):
                 return "User with username \(name) already exists."
         }
     }
-
+    
     var status: HTTPStatus {
         switch self {
-        case .userNotLoggedIn:
-            return .unauthorized
-        case .invalidEmail:
-            return .badRequest
+            case .userNotLoggedIn:
+                return .unauthorized
+            case .invalidEmail:
+                return .badRequest
             case .usernameAlreadyExist:
                 return .conflict
                 

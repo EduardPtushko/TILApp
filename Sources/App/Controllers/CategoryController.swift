@@ -16,6 +16,7 @@ struct CategoriesController: RouteCollection {
         categoriesRoute.post(use: createHandler)
         categoriesRoute.get(use: getAllHandler)
         categoriesRoute.get(":categoryID", use: getHandler)
+        categoriesRoute.delete(":categoryID", use: deleteHandler)
         categoriesRoute.get(":categoryID", "acronyms", use: getAcronymsHandler)
     }
     
@@ -39,6 +40,18 @@ struct CategoriesController: RouteCollection {
         }
         
         return category
+    }
+    
+    func deleteHandler(_ req: Request) async throws -> HTTPStatus {
+        guard let categoryID = req.parameters.get("categoryID", as: UUID.self) else {
+            throw Abort(.badRequest)
+        }
+        guard let category = try await Category.find(categoryID, on: req.db) else {
+            throw Abort(.notFound)
+        }
+        try await category.delete(on: req.db)
+        
+        return .noContent
     }
     
     func getAcronymsHandler(_ req: Request) async throws -> [Acronym] {

@@ -33,6 +33,7 @@ struct AcronymsController: RouteCollection {
     
     func createHandler(_ req: Request) async throws -> Acronym {
         let data = try req.content.decode(CreateAcronymData.self)
+        
         let acronym = Acronym(short: data.short, long: data.long, userID: data.userID)
         try await acronym.create(on: req.db)
         return acronym
